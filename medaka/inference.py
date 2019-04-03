@@ -154,9 +154,13 @@ def run_training(train_name, batcher, model_fp=None,
         loss = 'sparse_categorical_crossentropy'
         logger.info("Using {} loss function".format(loss))
 
+    optimizer=optimizers.RMSprop(
+        lr=0.00075, rho=0.9, epsilon=None, decay=0.0
+    )
+
     model.compile(
        loss=loss,
-       optimizer='nadam',
+       optimizer=optimizer,
        metrics=[cat_acc, qscore],
     )
 
