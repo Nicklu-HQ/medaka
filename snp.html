@@ -1,0 +1,347 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Experimental SNP calling &mdash; Medaka 0.6.4 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Walkthrough" href="walkthrough.html" />
+    <link rel="prev" title="Benchmarks" href="benchmarks.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Medaka
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.6.4
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Experimental SNP calling</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#further-improvements">Further Improvements</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="walkthrough.html">Walkthrough</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="future.html">History and Future Directions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Medaka</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Experimental SNP calling</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/snp.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="experimental-snp-calling">
+<h1>Experimental SNP calling<a class="headerlink" href="#experimental-snp-calling" title="Permalink to this headline">¶</a></h1>
+<p>Medaka implements an experimental pipeline to call single nucleotide
+polymorphisms (SNPs) from Nanopore basecalls, leveraging medaka’s existing
+consensus network and phasing information from <a class="reference external" href="https://whatshap.readthedocs.io">WhatsHap</a>.</p>
+<p>The approach is to make a first pass on a pileup of reads to a reference
+sequence using medaka in the usual manner. Ordinarily <cite>medaka</cite> will only call a
+consensus sequence from the outputs of its neural network. However is it
+possible to pull-out secondary calls from its output, i.e.  alternative
+alleles. A secondary call occuring with a high probability indicates
+heterozygous locus. Where no secondary call occurs with a high probability the
+locus is determined to be homozygous.</p>
+<p>Applying such a process gives respectable, if not state-of-the-art results for
+a region (<cite>chr21:21300000-22305000</cite>) of the NA12878 human sample.</p>
+<table border="1" class="docutils" id="id2">
+<caption><span class="caption-text">Single nucleotide polymorphism calling at 100-fold coverage using
+simple <cite>medaka consensus</cite> pipeline. Comparison
+is made with the <a class="reference external" href="http://jimb.stanford.edu/giab-resources/">GIAB</a>
+high confidence callset using <a class="reference external" href="https://github.com/RealTimeGenomics/rtg-tools">RTG vcfeval</a>.</span><a class="headerlink" href="#id2" title="Permalink to this table">¶</a></caption>
+<colgroup>
+<col width="38%" />
+<col width="23%" />
+<col width="17%" />
+<col width="21%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>&#160;</td>
+<td>Precision</td>
+<td>Recall</td>
+<td>F1 score</td>
+</tr>
+<tr class="row-even"><td>nanopolish</td>
+<td>0.9938</td>
+<td>0.9662</td>
+<td>0.9798</td>
+</tr>
+<tr class="row-odd"><td>clairvoyant</td>
+<td>0.9906</td>
+<td>0.9519</td>
+<td>0.9709</td>
+</tr>
+<tr class="row-even"><td>medaka consensus</td>
+<td>0.9575</td>
+<td>0.9467</td>
+<td>0.9521</td>
+</tr>
+</tbody>
+</table>
+<p>Here both the <a class="reference external" href="https://github.com/jts/nanopolish">nanopolish</a> and
+<a class="reference external" href="https://github.com/aquaskyline/Clairvoyante">clairvoyant</a> calls have been
+post-processed with a custom strand-bias filter to maximise the F1 score.
+Remarkably despite being trained to call a single consensus, medaka can in fact
+recover some heterozygous sites. Indeed one of its failings is to call
+homozygous sites as heterozygous; this is often true of nanopolish also.</p>
+<p>To improve on these results, we can attempt to phase the recovered variants
+using <a class="reference external" href="https://whatshap.readthedocs.io">WhatsHap</a>. This process allows us to
+uncover the haploid genomes and assign a haplotype to all reads. Having
+partitioned reads into their haplotype we can run <cite>medaka consensus</cite> a second
+time to calculate a consensus sequence for each haplotype invididually. This
+second pass is a task in which we know <cite>medaka</cite> excels, see <a class="reference internal" href="benchmarks.html#benchmarks"><span class="std std-ref">Benchmarks</span></a>.
+Having run <cite>medaka</cite> on the partitioned reads it is a simple task to reconstruct
+variant calls, both homo- and heterozygous, and rephase.</p>
+<img alt="_images/phased_snps.png" src="_images/phased_snps.png" />
+<p>In principle one can iterate this process to further refine the partitioning of
+reads into their haplotypes. After two iterations we obtain state-of-the-art
+results for the region under test:</p>
+<table border="1" class="docutils" id="id3">
+<caption><span class="caption-text">Single nucleotide polymorphism calling at 100-fold coverage using
+<cite>medaka variant</cite> pipeline.</span><a class="headerlink" href="#id3" title="Permalink to this table">¶</a></caption>
+<colgroup>
+<col width="38%" />
+<col width="23%" />
+<col width="17%" />
+<col width="21%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>&#160;</td>
+<td>Precision</td>
+<td>Recall</td>
+<td>F1 score</td>
+</tr>
+<tr class="row-even"><td>medaka variant</td>
+<td>0.9939</td>
+<td>0.9745</td>
+<td>0.9841</td>
+</tr>
+<tr class="row-odd"><td>nanopolish</td>
+<td>0.9938</td>
+<td>0.9662</td>
+<td>0.9798</td>
+</tr>
+<tr class="row-even"><td>clairvoyant</td>
+<td>0.9906</td>
+<td>0.9519</td>
+<td>0.9709</td>
+</tr>
+<tr class="row-odd"><td>medaka consensus</td>
+<td>0.9575</td>
+<td>0.9467</td>
+<td>0.9521</td>
+</tr>
+</tbody>
+</table>
+<p>The pipeline described above is implemented in the <cite>medaka_variant</cite> program:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span> <span class="si">${</span><span class="nv">MEDAKA</span><span class="si">}</span>
+medaka_variant -r &lt;REFERENCE.fata&gt; -b &lt;reads.bam&gt; -m 941_flip
+</pre></div>
+</div>
+<p>It has been benchmarked flip-flop basecaller output only. This will run all
+the necessary steps, performing two iterations of the process described above
+finally outputting a final phased <cite>.vcf</cite> variant file.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <cite>medaka_variant</cite> (and <cite>medaka_consensus</cite>) pipeline only operate on
+a <cite>.bam</cite> alignment file containing a single sample (value of the <cite>RG</cite>
+alignment tag). It will refuse to run in the case of two read groups
+being present.</p>
+</div>
+<div class="section" id="further-improvements">
+<h2>Further Improvements<a class="headerlink" href="#further-improvements" title="Permalink to this headline">¶</a></h2>
+<p>Currently the <cite>medaka_variant</cite> pipeline reuses existing tools and neural neural
+networks trained for the task of deriving a consensus sequence. No
+specialisations have been made for the task at hand. Naturally the existing
+networks do not expect reads indicating a diploid sample and so their ability
+to correctly call heterozygous sites is limited, though useful as demonstrated
+above. It would be preferable to train a neural network with explicit knowledge
+of zygosity — this can be done fairly straight-forwardly with some minor
+modifications to <cite>medaka</cite>’s training code.</p>
+<p>The models currently provided within <cite>medaka</cite> are trained from bacterial
+samples, and further predominantly from PCR products. To improve variant
+calling from basecalls of human, native DNA a next step would be to instead use
+such a sample in training.</p>
+<p>With these changes, and others, it is likely that the results presented above
+can be improved upon.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="walkthrough.html" class="btn btn-neutral float-right" title="Walkthrough" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="benchmarks.html" class="btn btn-neutral float-left" title="Benchmarks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-19, Oxford Nanopore Technologies
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

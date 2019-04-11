@@ -1,0 +1,384 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>medaka.labels &mdash; Medaka 0.6.4 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> Medaka
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.6.4
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../snp.html">Experimental SNP calling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../walkthrough.html">Walkthrough</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../future.html">History and Future Directions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Medaka</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../medaka.html">medaka</a> &raquo;</li>
+        
+      <li>medaka.labels</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for medaka.labels</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pysam</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="k">import</span> <span class="n">copy</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="k">import</span> <span class="n">attrgetter</span>
+<span class="kn">from</span> <span class="nn">medaka.common</span> <span class="k">import</span> <span class="n">_gap_</span><span class="p">,</span> <span class="n">encoding</span><span class="p">,</span> <span class="n">get_named_logger</span>
+<span class="kn">from</span> <span class="nn">medaka.common</span> <span class="k">import</span> <span class="n">get_pairs</span><span class="p">,</span> <span class="n">yield_compressed_pairs</span><span class="p">,</span> <span class="n">get_pairs_with_hp_len</span>
+
+
+<div class="viewcode-block" id="TruthAlignment"><a class="viewcode-back" href="../../medaka.html#medaka.labels.TruthAlignment">[docs]</a><span class="k">class</span> <span class="nc">TruthAlignment</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alignment</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a TruthAlignment oblist from a `pysam.libcalignedsegment.AlignedSegment` object.</span>
+
+<span class="sd">        :param alignment: `pysam.libcalignedsegment.AlignedSegment` object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aln</span> <span class="o">=</span> <span class="n">alignment</span>  <span class="c1"># so we can get positions and labels later</span>
+        <span class="c1"># initialise start and end (which might be moved)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_start</span>  <span class="c1"># zero-based</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_end</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_kept</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_named_logger</span><span class="p">(</span><span class="s1">&#39;TruthAlign&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TruthAlignment.get_overlap_with"><a class="viewcode-back" href="../../medaka.html#medaka.labels.TruthAlignment.get_overlap_with">[docs]</a>    <span class="k">def</span> <span class="nf">get_overlap_with</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">first</span><span class="p">,</span> <span class="n">second</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">&#39;aln.reference_start&#39;</span><span class="p">))</span>
+        <span class="n">overlap</span> <span class="o">=</span> <span class="n">first</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_end</span> <span class="o">&gt;</span> <span class="n">second</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_start</span>
+        <span class="k">if</span> <span class="n">overlap</span><span class="p">:</span>
+            <span class="c1"># return positions of start and end of overlapping region</span>
+            <span class="k">return</span> <span class="n">second</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_start</span><span class="p">,</span> <span class="n">first</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_end</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="TruthAlignment.filter_alignments"><a class="viewcode-back" href="../../medaka.html#medaka.labels.TruthAlignment.filter_alignments">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">filter_alignments</span><span class="p">(</span><span class="n">alignments</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">length_ratio</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">overlap_fraction</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                         <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Filter alignments to yield only segments suitable for training.</span>
+
+<span class="sd">        :param alignments: iterable of `TruthAlignment` objects.</span>
+<span class="sd">        :param min_length: int, minimum length of alignment segment.</span>
+<span class="sd">        :param length_ratio: float, in cases of overlap, ratio of longer segment / shorter segment</span>
+<span class="sd">            above which the longer segment is assumed to be more reliable.</span>
+<span class="sd">        :param overlap_fraction: float, length_ratio: float, in cases of overlap, fraction of</span>
+<span class="sd">            shorter segment overlapping with the longer segment above which the segments are</span>
+<span class="sd">            considered highly overlapping.</span>
+<span class="sd">        :param start: zero-based start position in reference coordinates. Any alignments which</span>
+<span class="sd">            start before this value will take this new starting coordinate.</span>
+<span class="sd">        :param end: zero-based end position in reference coordinates. and alignments</span>
+<span class="sd">            which end after this value will take this new ending coordinate.</span>
+<span class="sd">        :returns: list of `TruthAlignment` objects</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filtered_alignments</span> <span class="o">=</span> <span class="p">[</span><span class="n">copy</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alignments</span><span class="p">]</span>  <span class="c1"># don&#39;t want to modify original alignments</span>
+        <span class="k">for</span> <span class="n">al_i</span><span class="p">,</span> <span class="n">al_j</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">combinations</span><span class="p">(</span><span class="n">filtered_alignments</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="n">first</span><span class="p">,</span> <span class="n">second</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">al_i</span><span class="p">,</span> <span class="n">al_j</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">&#39;aln.reference_start&#39;</span><span class="p">))</span>
+            <span class="n">overlap</span> <span class="o">=</span> <span class="n">first</span><span class="o">.</span><span class="n">get_overlap_with</span><span class="p">(</span><span class="n">second</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">overlap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">ovlp_start</span><span class="p">,</span> <span class="n">ovlp_end</span> <span class="o">=</span> <span class="n">overlap</span>
+            <span class="n">shorter</span><span class="p">,</span> <span class="n">longer</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">al_i</span><span class="p">,</span> <span class="n">al_j</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">&#39;aln.reference_length&#39;</span><span class="p">))</span>
+            <span class="n">length_ratio_ij</span> <span class="o">=</span> <span class="n">longer</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_length</span> <span class="o">/</span> <span class="n">shorter</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_length</span>
+            <span class="n">overlap_fraction_ij</span> <span class="o">=</span> <span class="p">(</span><span class="n">ovlp_end</span> <span class="o">-</span> <span class="n">ovlp_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">shorter</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_length</span>
+            <span class="c1"># 4 cases</span>
+            <span class="k">if</span> <span class="n">length_ratio_ij</span> <span class="o">&lt;</span> <span class="n">length_ratio</span><span class="p">:</span>  <span class="c1"># we don&#39;t trust one more than the other</span>
+                <span class="k">if</span> <span class="n">overlap_fraction_ij</span> <span class="o">&gt;=</span> <span class="n">overlap_fraction</span><span class="p">:</span>
+                    <span class="c1"># 1) they overlap a lot; we have significant ambiguity, discard both</span>
+                    <span class="n">shorter</span><span class="o">.</span><span class="n">is_kept</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="n">longer</span><span class="o">.</span><span class="n">is_kept</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># 2) they overlap a little; just trim overlapping portions of both alignments</span>
+                    <span class="n">first</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">ovlp_start</span>
+                    <span class="n">second</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">ovlp_end</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># we trust the longer one more than the shorter one</span>
+                <span class="k">if</span> <span class="n">overlap_fraction_ij</span> <span class="o">&gt;=</span> <span class="n">overlap_fraction</span><span class="p">:</span>
+                    <span class="c1"># 3) they overlap a lot; discard shorter alignment</span>
+                    <span class="n">shorter</span><span class="o">.</span><span class="n">is_kept</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># 4) they overlap a little; trim overlapping portion of shorter alignment</span>
+                    <span class="n">second</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">ovlp_end</span>
+
+        <span class="c1"># trim starts and ends if needed</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">al</span> <span class="ow">in</span> <span class="n">filtered_alignments</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">al</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">al</span><span class="o">.</span><span class="n">start</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">al</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">al</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+        <span class="c1"># do filtering</span>
+        <span class="n">filtered_alignments</span> <span class="o">=</span> <span class="p">[</span><span class="n">al</span> <span class="k">for</span> <span class="n">al</span> <span class="ow">in</span> <span class="n">filtered_alignments</span>
+                               <span class="k">if</span> <span class="p">(</span><span class="n">al</span><span class="o">.</span><span class="n">is_kept</span> <span class="ow">and</span> <span class="n">al</span><span class="o">.</span><span class="n">end</span> <span class="o">-</span> <span class="n">al</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">min_length</span><span class="p">)]</span>
+        <span class="n">filtered_alignments</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">filtered_alignments</span></div>
+
+<div class="viewcode-block" id="TruthAlignment.bam_to_alignments"><a class="viewcode-back" href="../../medaka.html#medaka.labels.TruthAlignment.bam_to_alignments">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">bam_to_alignments</span><span class="p">(</span><span class="n">truth_bam</span><span class="p">,</span> <span class="n">ref_name</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create list of TruthAlignment objects from a bam of Truth aligned to ref.</span>
+
+<span class="sd">        :param truth_bam: (sorted indexed) bam with true sequence aligned to reference</span>
+<span class="sd">        :param ref: name of reference to process</span>
+<span class="sd">        :param start: starting position within reference</span>
+<span class="sd">        :param end: ending position within reference</span>
+<span class="sd">            (all alignments with any overlap with the interval start:end will be retrieved)</span>
+<span class="sd">        :returns: tuple(positions, encoded_label_array)</span>
+
+<span class="sd">            - positions: numpy structured array with &#39;ref_major&#39;</span>
+<span class="sd">              (reference position index) and &#39;ref_minor&#39;</span>
+<span class="sd">              (trailing insertion index) fields.</span>
+
+<span class="sd">            - feature_array: 1D numpy array of encoded labels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">truth_bam</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">bamfile</span><span class="p">:</span>
+            <span class="n">aln_reads</span> <span class="o">=</span> <span class="n">bamfile</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>
+            <span class="n">alignments</span> <span class="o">=</span> <span class="p">[</span><span class="n">TruthAlignment</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">aln_reads</span> <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">is_unmapped</span> <span class="ow">or</span> <span class="n">r</span><span class="o">.</span><span class="n">is_secondary</span><span class="p">)]</span>
+            <span class="n">alignments</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">))</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">get_named_logger</span><span class="p">(</span><span class="s2">&quot;TruthAlign&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Retrieved </span><span class="si">{}</span><span class="s2"> alignments.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">alignments</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">alignments</span></div>
+
+<div class="viewcode-block" id="TruthAlignment.get_positions_and_labels"><a class="viewcode-back" href="../../medaka.html#medaka.labels.TruthAlignment.get_positions_and_labels">[docs]</a>    <span class="k">def</span> <span class="nf">get_positions_and_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ref_compr_rle</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mock_compr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">is_compressed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rle_dtype</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create labels and positions array.</span>
+
+<span class="sd">        :param start: starting position within reference</span>
+<span class="sd">        :param end: ending position within reference</span>
+<span class="sd">        :param ref_compr_rle: np.ndarray, dtype [(&#39;start&#39;, int), (&#39;end&#39;, int)]</span>
+<span class="sd">            containing uncompressed start position and length for each compressed position.</span>
+<span class="sd">        :param mock_compr: bool, labels will be encoded as for a compressed sequence, even if ref_compr_rle is None.</span>
+<span class="sd">        :param is_compressed: bool, whether the sequence has been run length encoded.</span>
+<span class="sd">        :param rle_dtype: bool, whether to force dtype of labels to be (int base , int length).</span>
+<span class="sd">        :returns: tuple(positions, encoded_label_array)</span>
+
+<span class="sd">            - positions: numpy structured array with &#39;ref_major&#39;</span>
+<span class="sd">              (reference position index) and &#39;ref_minor&#39;</span>
+<span class="sd">              (trailing insertion index) fields.</span>
+
+<span class="sd">            - label_array: 1D numpy array of labels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;Inf&#39;</span><span class="p">)</span>
+        <span class="c1"># ensure start and end fall within filtered region</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+
+        <span class="n">positions_labels</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">is_compressed</span><span class="p">:</span>
+            <span class="n">pairs</span> <span class="o">=</span> <span class="n">yield_compressed_pairs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aln</span><span class="p">,</span> <span class="n">ref_compr_rle</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mock_compr</span><span class="p">:</span>
+            <span class="n">pairs</span> <span class="o">=</span> <span class="n">get_pairs_with_hp_len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aln</span><span class="p">,</span> <span class="n">ref_compr_rle</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pairs</span> <span class="o">=</span> <span class="n">get_pairs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aln</span><span class="p">)</span>
+
+        <span class="n">ins_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">dropwhile</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">rpos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+                                        <span class="ow">or</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">rpos</span> <span class="o">&lt;</span> <span class="n">start</span><span class="p">),</span> <span class="n">pairs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">((</span><span class="n">pair</span><span class="o">.</span><span class="n">rpos</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">aln</span><span class="o">.</span><span class="n">reference_end</span> <span class="p">)</span> <span class="ow">or</span>
+                <span class="p">(</span><span class="n">pair</span><span class="o">.</span><span class="n">rpos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pair</span><span class="o">.</span><span class="n">rpos</span> <span class="o">&gt;=</span> <span class="n">end</span><span class="p">)):</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">pair</span><span class="o">.</span><span class="n">rpos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ins_count</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ins_count</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">current_pos</span> <span class="o">=</span> <span class="n">pair</span><span class="o">.</span><span class="n">rpos</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_pos</span><span class="p">,</span> <span class="n">ins_count</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">pair</span><span class="o">.</span><span class="n">qbase</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">if</span> <span class="n">pair</span><span class="o">.</span><span class="n">qbase</span> <span class="k">else</span> <span class="n">_gap_</span>
+            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="s1">&#39;N&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Found </span><span class="si">{}</span><span class="s1"> at pos </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">pos</span><span class="p">))</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">encoding</span><span class="p">[</span><span class="n">label</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">is_compressed</span> <span class="ow">or</span> <span class="n">mock_compr</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">=</span> <span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">pair</span><span class="o">.</span><span class="n">qlen</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">rle_dtype</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">=</span> <span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">positions_labels</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pos</span><span class="p">,</span> <span class="n">label</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">is_compressed</span> <span class="ow">or</span> <span class="n">mock_compr</span> <span class="ow">or</span> <span class="n">rle_dtype</span><span class="p">:</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s1">&#39;base&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;run_length&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="nb">int</span>
+        <span class="n">label_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">positions_labels</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">positions_labels</span><span class="p">),</span>
+                             <span class="n">dtype</span><span class="o">=</span><span class="p">[(</span><span class="s1">&#39;major&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;minor&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)])</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">positions_labels</span><span class="p">):</span>
+            <span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos</span>
+            <span class="n">label_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">label</span>
+
+        <span class="k">return</span> <span class="n">positions</span><span class="p">,</span> <span class="n">label_array</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-19, Oxford Nanopore Technologies
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

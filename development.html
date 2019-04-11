@@ -1,0 +1,298 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Development &mdash; Medaka 0.6.4 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="medaka package" href="medaka.html" />
+    <link rel="prev" title="Walkthrough" href="walkthrough.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Medaka
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.6.4
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snp.html">Experimental SNP calling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="walkthrough.html">Walkthrough</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#creating-a-software-environment">Creating a Software Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api-reference">API reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="medaka.html">medaka package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="future.html">History and Future Directions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Medaka</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Development</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/development.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="development">
+<h1>Development<a class="headerlink" href="#development" title="Permalink to this headline">¶</a></h1>
+<p>As well as providing the useful functionality of creating consensus calls from
+basecall data, <cite>medaka</cite> demonstrates a framework for both training and
+inference. The code exploits the <a class="reference external" href="https://keras.io">keras</a> deep learning
+library.</p>
+<p>A simple method presented to inspire further ideas is to align input sequences
+and a truth sequence to a common baseline (e.g. reads and a reference to a
+draft assembly), and extract ‘feature vectors’ for input into a neural network
+classifier.</p>
+<p>The currently implemented neural networks are limited in their ability to
+correct errors: to predict an output base from a window of oriented base
+features. They make no use of primary signal data from nanopore experiments,
+as for instance performed by <a class="reference external" href="https://github.com/jts/nanopolish">nanopolish</a>.
+Future projects will implement correction schemes working directly from signal
+data of multiple reads. For more details see <a class="reference internal" href="future.html"><span class="doc">History and Future Directions</span></a>.</p>
+<p>For a complete example starting basecalls, through forming a draft assembly,
+to training and using a consensus network see the <a class="reference internal" href="walkthrough.html"><span class="doc">Walkthrough</span></a>.</p>
+<p>For more details on the internals of <cite>medaka</cite> see <a class="reference internal" href="medaka.html"><span class="doc">medaka package</span></a>.</p>
+<div class="section" id="creating-a-software-environment">
+<span id="creating-software-env"></span><h2>Creating a Software Environment<a class="headerlink" href="#creating-a-software-environment" title="Permalink to this headline">¶</a></h2>
+<p>While not strictly necessary to use <cite>medaka</cite>, the <a class="reference internal" href="walkthrough.html"><span class="doc">Walkthrough</span></a> makes use of
+several other open-source tools from Oxford Nanopore Technologies. To obtain
+these run the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">MEDAKAHOME</span><span class="o">=</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>
+git clone https://github.com/nanoporetech/pomoxis --recursive
+git clone https://github.com/nanoporetech/medaka
+
+<span class="c1"># While it is possible to install pomoxis and medaka into the same</span>
+<span class="c1">#   virtual environment, we will install each package into its own</span>
+<span class="c1">#   environment for simplicity. For more details see the readme for</span>
+<span class="c1">#   each of the packages.</span>
+
+<span class="nb">cd</span> pomoxis <span class="o">&amp;&amp;</span> make install <span class="o">&amp;&amp;</span> <span class="nb">cd</span> ..
+<span class="nb">cd</span> medaka <span class="o">&amp;&amp;</span> make install <span class="o">&amp;&amp;</span> <span class="nb">cd</span> ..
+
+<span class="nv">POMOXIS</span><span class="o">=</span><span class="si">${</span><span class="nv">MEDAKAHOME</span><span class="si">}</span>/pomoxis/venv/bin/activate
+<span class="nv">MEDAKA</span><span class="o">=</span><span class="si">${</span><span class="nv">MEDAKAHOME</span><span class="si">}</span>/medaka/venv/bin/activate
+</pre></div>
+</div>
+<p>If any of the above steps fail consult the install instructions of the
+individual packages.</p>
+<p>In order to train effectively consensus models it is desirable to use a system
+with a GPU. In order to use <cite>medaka</cite> training with a GPU, one should further
+install the <cite>tensorflow-gpu</cite> package from pip into the medaka virtual
+environment with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span> <span class="si">${</span><span class="nv">MEDAKA</span><span class="si">}</span>
+pip install tensorflow-gpu<span class="o">=={</span>version<span class="o">}</span>
+</pre></div>
+</div>
+<p>where <cite>{version}</cite> should be replaced by the version found in the
+<cite>requirements.txt</cite> file found within the software repository.</p>
+<p>Depending on your environment, specifically the versions of <cite>CUDA</cite> and <cite>cuDNN</cite>
+that one has installed, it may be necessary to compile from source tensorflow;
+the precompiled versions are naturally linked against specific versions of
+these libraries.</p>
+</div>
+<div class="section" id="api-reference">
+<h2>API reference<a class="headerlink" href="#api-reference" title="Permalink to this headline">¶</a></h2>
+<p>The medaka library comprising feature generation, data labelling, and batching
+code is detailed below.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="medaka.html">medaka package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.common">medaka.common module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.datastore">medaka.datastore module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.features">medaka.features module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.inference">medaka.inference module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.keras_ext">medaka.keras_ext module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.labels">medaka.labels module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.medaka">medaka.medaka module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.medaka_counts">medaka.medaka_counts module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.models">medaka.models module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.stitch">medaka.stitch module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka.vcf">medaka.vcf module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="medaka.html#module-medaka">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="medaka.html" class="btn btn-neutral float-right" title="medaka package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="walkthrough.html" class="btn btn-neutral float-left" title="Walkthrough" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-19, Oxford Nanopore Technologies
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

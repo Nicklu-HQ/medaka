@@ -1,0 +1,601 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>medaka.vcf &mdash; Medaka 0.6.4 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> Medaka
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.6.4
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmarks.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../snp.html">Experimental SNP calling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../walkthrough.html">Walkthrough</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../future.html">History and Future Directions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Medaka</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+          <li><a href="../medaka.html">medaka</a> &raquo;</li>
+        
+      <li>medaka.vcf</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for medaka.vcf</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">copy</span> <span class="k">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span><span class="p">,</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">Lock</span>
+
+<span class="kn">from</span> <span class="nn">intervaltree</span> <span class="k">import</span> <span class="n">IntervalTree</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">medaka.common</span>
+
+
+<div class="viewcode-block" id="self_return"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.self_return">[docs]</a><span class="k">def</span> <span class="nf">self_return</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span></div>
+
+
+<span class="c1"># Source: Table1 in &#39;The Variant Call Format Specification VCFv4.3&#39;, Table 1</span>
+<span class="c1"># Tuples below are (number, type), where number can be:</span>
+<span class="c1">#   A: The field has one value per alternate allele</span>
+<span class="c1">#   R: The field has one value for each possible allele, including the reference</span>
+<span class="c1">#   G: The field has one value for each possible genotype</span>
+<span class="c1">#   .(dot): The number of possible values varies, is unknown or unbounded</span>
+<span class="n">reserved_info_fields</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;AA&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span> <span class="s1">&#39;AC&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;AD&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;R&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;ADF&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;R&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span>
+                        <span class="s1">&#39;ADR&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;R&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;AF&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="s1">&#39;AN&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;BQ&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span>
+                        <span class="s1">&#39;CIGAR&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span> <span class="s1">&#39;DB&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span> <span class="s1">&#39;DP&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;END&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span>
+                        <span class="s1">&#39;H2&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span> <span class="s1">&#39;H3&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span> <span class="s1">&#39;MQ&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span>
+                        <span class="s1">&#39;MQ0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;NS&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s1">&#39;SB&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span>
+                        <span class="s1">&#39;SOMATIC&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span> <span class="s1">&#39;VALIDATED&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self_return</span><span class="p">),</span> <span class="s1">&#39;1000G&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self_return</span><span class="p">)</span>
+                        <span class="p">}</span>
+<span class="n">own_info_fields</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;SCORES&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;R&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)}</span>
+<span class="n">all_info_fields</span> <span class="o">=</span> <span class="n">reserved_info_fields</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">all_info_fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">own_info_fields</span><span class="p">)</span>
+
+<div class="viewcode-block" id="parse_tags_to_string"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.parse_tags_to_string">[docs]</a><span class="k">def</span> <span class="nf">parse_tags_to_string</span><span class="p">(</span><span class="n">tags</span><span class="p">):</span>
+    <span class="n">str_tags</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tags</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># If key is of type &#39;Flag&#39;, print only key, else &#39;key=value&#39;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">str_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">value</span><span class="p">))</span>
+            <span class="n">str_tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+    <span class="k">return</span> <span class="s1">&#39;;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">str_tags</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="parse_string_to_tags"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.parse_string_to_tags">[docs]</a><span class="k">def</span> <span class="nf">parse_string_to_tags</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">splitter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">):</span>
+    <span class="n">tags</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tag</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">all_info_fields</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">_type</span> <span class="o">=</span> <span class="n">all_info_fields</span><span class="p">[</span><span class="n">tag</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">_type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">splitter</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">field</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">tags</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="k">return</span> <span class="n">tags</span></div>
+
+
+<div class="viewcode-block" id="Variant"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.Variant">[docs]</a><span class="k">class</span> <span class="nc">Variant</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="c1"># TODO: ref/alt could be a symbolic allele &quot;&lt;ID&gt;&quot;.</span>
+    <span class="c1"># TODO: alt could contain breakends.</span>
+    <span class="c1"># TODO: Handle genomic fields.</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">alt</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">qual</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">info</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">sample_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span> <span class="o">=</span> <span class="n">chrom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="c1"># self.alt should be a list/tuple of alternatives</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alt</span> <span class="o">=</span> <span class="n">alt</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alt</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">alt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qual</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">qual</span><span class="p">)</span> <span class="k">if</span> <span class="n">qual</span> <span class="o">!=</span> <span class="s1">&#39;.&#39;</span> <span class="k">else</span> <span class="n">qual</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filter</span> <span class="o">=</span> <span class="nb">filter</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;;&#39;</span> <span class="ow">in</span> <span class="nb">filter</span> <span class="k">else</span> <span class="nb">filter</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="n">info</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="n">parse_string_to_tags</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_dict</span> <span class="o">=</span> <span class="n">sample_dict</span> <span class="k">if</span> <span class="n">sample_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">OrderedDict</span><span class="p">()</span>
+
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;ref&#39;</span><span class="p">,</span> <span class="s1">&#39;alt&#39;</span><span class="p">,</span> <span class="s1">&#39;qual&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">,</span> <span class="s1">&#39;info&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+
+    <span class="k">def</span> <span class="nf">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_sorted_format_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">sorted_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="s1">&#39;GT&#39;</span> <span class="ow">in</span> <span class="n">sorted_keys</span><span class="p">:</span>
+            <span class="n">sorted_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;GT&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">sorted_keys</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s1">&#39;GT&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">sorted_keys</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorted_format_keys</span><span class="p">))</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_dict</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorted_format_keys</span><span class="p">))</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">info_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+         <span class="k">return</span> <span class="n">parse_tags_to_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Variant.from_text"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.Variant.from_text">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_text</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
+        <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">alt</span><span class="p">,</span> <span class="n">qual</span><span class="p">,</span> <span class="nb">filter</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">sample_fields</span><span class="p">,</span> <span class="n">sample_data</span><span class="p">,</span> <span class="o">*</span><span class="n">others</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+        <span class="n">pos</span> <span class="o">-=</span> <span class="mi">1</span> <span class="c1"># VCF is 1-based, python 0-based</span>
+        <span class="n">sample_dict</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">sample_fields</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">),</span> <span class="n">sample_data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">alt</span><span class="o">=</span><span class="n">alt</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="nb">id</span><span class="p">,</span> <span class="n">qual</span><span class="o">=</span><span class="n">qual</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">,</span> <span class="n">info</span><span class="o">=</span><span class="n">info</span><span class="p">,</span> <span class="n">sample_dict</span><span class="o">=</span><span class="n">sample_dict</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Variant.add_tag"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.Variant.add_tag">[docs]</a>    <span class="k">def</span> <span class="nf">add_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="c1"># Remove default value if more than one exists</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Variant.get_tag"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.Variant.get_tag">[docs]</a>    <span class="k">def</span> <span class="nf">get_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span></div>
+
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;ref&#39;</span><span class="p">,</span> <span class="s1">&#39;alt&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;qual&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">,</span> <span class="s1">&#39;info_string&#39;</span><span class="p">):</span>
+            <span class="n">attributes</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s1">&#39;sample_repr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_dict</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sorted_format_keys</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;Variant(&#39;</span><span class="si">{chrom}</span><span class="s2">&#39;, </span><span class="si">{pos}</span><span class="s2">, &#39;</span><span class="si">{ref}</span><span class="s2">&#39;, alt=</span><span class="si">{alt}</span><span class="s2">, id=</span><span class="si">{id}</span><span class="s2">, qual=</span><span class="si">{qual}</span><span class="s2">,&quot;</span>
+                <span class="s2">&quot; filter=</span><span class="si">{filter}</span><span class="s2">, info=&#39;</span><span class="si">{info_string}</span><span class="s2">&#39;, sample=&#39;</span><span class="si">{sample_repr}</span><span class="s2">&#39;)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="n">attributes</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="Variant.deep_copy"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.Variant.deep_copy">[docs]</a>    <span class="k">def</span> <span class="nf">deep_copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Variant.to_dict"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.Variant.to_dict">[docs]</a>    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">alt</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alt</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;qual&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">,</span> <span class="s1">&#39;ref&#39;</span><span class="p">]:</span>
+            <span class="n">d</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">)</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d</span></div></div>
+
+
+<div class="viewcode-block" id="VCFWriter"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.VCFWriter">[docs]</a><span class="k">class</span> <span class="nc">VCFWriter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="c1"># some tools don&#39;t like VCFv4.3, preferring VCFv4.1 - so we should be able to</span>
+    <span class="c1"># write VCFv4.1 files. VCFv4.3 has a few extra reserved fields (&#39;AD&#39;, &#39;ADF&#39;, and</span>
+    <span class="c1"># &#39;ADR&#39;) but there is no harm in including those files written as VCFv4.1 - they</span>
+    <span class="c1"># just won&#39;t be recognised and used as reserved fields.</span>
+    <span class="n">version_options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;4.3&#39;</span><span class="p">,</span> <span class="s1">&#39;4.1&#39;</span><span class="p">}</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;w&#39;</span><span class="p">,</span>
+                 <span class="n">header</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;CHROM&#39;</span><span class="p">,</span> <span class="s1">&#39;POS&#39;</span><span class="p">,</span> <span class="s1">&#39;ID&#39;</span><span class="p">,</span> <span class="s1">&#39;REF&#39;</span><span class="p">,</span> <span class="s1">&#39;ALT&#39;</span><span class="p">,</span> <span class="s1">&#39;QUAL&#39;</span><span class="p">,</span> <span class="s1">&#39;FILTER&#39;</span><span class="p">,</span> <span class="s1">&#39;INFO&#39;</span><span class="p">,</span> <span class="s1">&#39;FORMAT&#39;</span><span class="p">,</span> <span class="s1">&#39;SAMPLE&#39;</span><span class="p">),</span>
+                 <span class="n">meta_info</span><span class="o">=</span><span class="p">[],</span>
+                 <span class="n">version</span><span class="o">=</span><span class="s1">&#39;4.3&#39;</span>
+                 <span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span>
+        <span class="k">if</span> <span class="n">version</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">version_options</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;version must be one of </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">version_options</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">version</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;fileformat=VCFv</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">)]</span> <span class="o">+</span> <span class="n">meta_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">get_named_logger</span><span class="p">(</span><span class="s1">&#39;VCFWriter&#39;</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;##&#39;</span> <span class="o">+</span> <span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;#&#39;</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="VCFWriter.write_variant"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.VCFWriter.write_variant">[docs]</a>    <span class="k">def</span> <span class="nf">write_variant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variant</span><span class="p">):</span>
+        <span class="n">variant</span> <span class="o">=</span> <span class="n">variant</span><span class="o">.</span><span class="n">deep_copy</span><span class="p">()</span>
+        <span class="c1"># Some fields can be multiple</span>
+        <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;alt&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">variant</span><span class="p">,</span> <span class="n">attribute</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">variant</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">value</span><span class="p">))</span>
+
+        <span class="c1"># Convert info dictionary to string</span>
+        <span class="n">variant</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="n">variant</span><span class="o">.</span><span class="n">info_string</span>
+
+        <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">variant</span><span class="p">,</span> <span class="n">field</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span> <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">]</span>
+        <span class="c1"># VCF POS field is 1-based</span>
+        <span class="n">elements</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;POS&#39;</span><span class="p">)]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">line</span><span class="p">))</span></div></div>
+
+
+<div class="viewcode-block" id="VCFReader"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.VCFReader">[docs]</a><span class="k">class</span> <span class="nc">VCFReader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Basic VCF parser.</span>
+
+<span class="sd">        :param filename: .vcf file.</span>
+<span class="sd">        :param cache: if True, all parsed variants are stored in memory for</span>
+<span class="sd">            faster subsequent access.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_indexed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lock</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">get_named_logger</span><span class="p">(</span><span class="s1">&#39;VCFReader&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Read both metadata and header</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">handle</span><span class="p">:</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;##&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+                <span class="k">elif</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="k">break</span>
+
+
+    <span class="k">def</span> <span class="nf">_parse</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># just parsing the file to yield records</span>
+        <span class="n">last_pos</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">handle</span><span class="p">):</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+                <span class="c1"># Already read meta and header in self.__init__</span>
+                <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
+                    <span class="k">continue</span>
+
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">variant</span> <span class="o">=</span> <span class="n">Variant</span><span class="o">.</span><span class="n">from_text</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span>
+                        <span class="s1">&#39;Exception while reading variant #</span><span class="si">{}</span><span class="s1">.</span><span class="se">\n</span><span class="s1">&#39;</span>
+                        <span class="s1">&#39;Line: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">line</span><span class="p">))</span> <span class="kn">from</span> <span class="nn">e</span>
+
+                <span class="k">if</span> <span class="n">variant</span><span class="o">.</span><span class="n">chrom</span> <span class="o">!=</span> <span class="n">last_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">last_pos</span> <span class="o">=</span> <span class="p">[</span><span class="n">variant</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">last_pos</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">last_pos</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">variant</span><span class="o">.</span><span class="n">pos</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s1">&#39;.vcf is unsorted at index #</span><span class="si">{}</span><span class="s1">.&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
+                <span class="k">yield</span> <span class="n">variant</span>
+                <span class="n">last_pos</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">variant</span><span class="o">.</span><span class="n">pos</span>
+
+
+<div class="viewcode-block" id="VCFReader.index"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.VCFReader.index">[docs]</a>    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Index the input file for faster fetches.&quot;&quot;&quot;</span>
+
+        <span class="c1"># calling this method implies caching</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indexed</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lock</span><span class="o">.</span><span class="n">acquire</span><span class="p">(</span><span class="n">blocking</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># clear out an incomplete parse, actually this doesn&#39;t matter since</span>
+                <span class="c1">#    the values in the tree are set-like.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">IntervalTree</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">variant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span><span class="p">[</span><span class="n">variant</span><span class="o">.</span><span class="n">chrom</span><span class="p">][</span><span class="n">variant</span><span class="o">.</span><span class="n">pos</span><span class="p">:</span><span class="n">variant</span><span class="o">.</span><span class="n">pos</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">variant</span><span class="o">.</span><span class="n">ref</span><span class="p">)]</span> <span class="o">=</span> <span class="n">variant</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># record we&#39;ve done a complete parse</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_indexed</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lock</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># wait for lock to be released, then return</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lock</span><span class="o">.</span><span class="n">acquire</span><span class="p">(</span><span class="n">blocking</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indexed</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Waited for parsing, but parsing did not occur.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="VCFReader.fetch"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.VCFReader.fetch">[docs]</a>    <span class="k">def</span> <span class="nf">fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield all variants spanned by a region.</span>
+
+<span class="sd">        :param ref_name: reference name (CHROM field of .vcf).</span>
+<span class="sd">        :param start: inclusive start co-ordinate (0-based).</span>
+<span class="sd">        :param end: exclusive end co-ordinate (0-based).</span>
+<span class="sd">        :param strict: if False variants overlapping the region, but not</span>
+<span class="sd">            contained enitrely within the region are yielded also.</span>
+
+<span class="sd">        :yields: :py:class:`Variant` instances.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">_tree_search</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">strict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">tree</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="k">if</span> <span class="n">strict</span> <span class="k">else</span> <span class="n">tree</span><span class="o">.</span><span class="n">envelop</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">:</span>
+            <span class="c1"># if not using a cache, just keep re-reading the file</span>
+            <span class="k">for</span> <span class="n">variant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">ref_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">variant</span><span class="o">.</span><span class="n">chrom</span> <span class="o">==</span> <span class="n">ref_name</span><span class="p">,</span>
+                            <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">variant</span><span class="o">.</span><span class="n">pos</span> <span class="o">&gt;</span> <span class="n">start</span><span class="p">,</span>
+                            <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">variant</span><span class="o">.</span><span class="n">pos</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">variant</span><span class="o">.</span><span class="n">ref</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">]):</span>
+                    <span class="k">continue</span>
+                <span class="k">yield</span> <span class="n">variant</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">ref_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">_tree_search</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tree</span><span class="p">[</span><span class="n">ref_name</span><span class="p">],</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">strict</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">(</span>
+                     <span class="n">_tree_search</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="p">))</span>
+            <span class="c1"># spec says .vcf is sorted, lets follow</span>
+            <span class="k">for</span> <span class="n">interval</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">interval</span><span class="o">.</span><span class="n">data</span></div></div>
+
+
+<div class="viewcode-block" id="get_homozygous_regions"><a class="viewcode-back" href="../../medaka.html#medaka.vcf.get_homozygous_regions">[docs]</a><span class="k">def</span> <span class="nf">get_homozygous_regions</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="n">vcf</span> <span class="o">=</span> <span class="n">VCFReader</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">vcf</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Region</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">reg</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">reg</span><span class="o">.</span><span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Region start and end must be specified&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_hetero_pos</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+        <span class="n">gt</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s1">&#39;GT&#39;</span><span class="p">]</span>
+        <span class="n">is_hetero</span> <span class="o">=</span> <span class="n">gt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">gt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">pos</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">ref</span><span class="p">))]</span> <span class="k">if</span> <span class="n">is_hetero</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="n">pos</span>
+
+    <span class="k">def</span> <span class="nf">get_homo_regions</span><span class="p">(</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">min_len</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">hetero_gaps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ediff1d</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+        <span class="n">sort_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">hetero_gaps</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">homo_len</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sort_inds</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">hetero_gaps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">min_len</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">homo_len</span> <span class="o">+=</span> <span class="n">hetero_gaps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">hetero_gaps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">regions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Region</span><span class="p">(</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">regions</span><span class="p">,</span> <span class="n">homo_len</span>
+
+    <span class="n">pos</span> <span class="o">=</span> <span class="p">[</span><span class="n">reg</span><span class="o">.</span><span class="n">start</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vcf</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">ref_name</span><span class="o">=</span><span class="n">reg</span><span class="o">.</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">reg</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">reg</span><span class="o">.</span><span class="n">end</span><span class="p">):</span>
+        <span class="n">pos</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">get_hetero_pos</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+    <span class="n">pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+
+    <span class="n">homo_regions</span><span class="p">,</span> <span class="n">homo_len</span> <span class="o">=</span> <span class="n">get_homo_regions</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">min_len</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">min_len</span><span class="p">)</span>
+
+    <span class="c1"># sort regions by start</span>
+    <span class="n">homo_regions</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">start</span><span class="p">)</span>
+
+    <span class="c1"># invert homozygous regions to get regions containing heterozygous calls</span>
+    <span class="n">hetero_regions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">start</span>
+    <span class="n">hetero_len</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">homo_reg</span> <span class="ow">in</span> <span class="n">homo_regions</span> <span class="o">+</span> <span class="p">[</span><span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Region</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">reg</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">)]:</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">homo_reg</span><span class="o">.</span><span class="n">start</span>
+        <span class="k">if</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="n">args</span><span class="o">.</span><span class="n">min_len</span><span class="p">:</span>
+            <span class="n">hetero_regions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Region</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+            <span class="n">hetero_len</span> <span class="o">+=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">homo_reg</span><span class="o">.</span><span class="n">end</span>
+
+    <span class="n">homo_fp</span> <span class="o">=</span> <span class="s1">&#39;homozygous_&#39;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">suffix</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">homo_fp</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">homo_regions</span><span class="p">)))</span>
+    <span class="n">hetero_fp</span> <span class="o">=</span> <span class="s1">&#39;heterozygous_&#39;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">suffix</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">hetero_fp</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">hetero_regions</span><span class="p">)))</span>
+
+    <span class="n">reg_len</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">end</span> <span class="o">-</span> <span class="n">reg</span><span class="o">.</span><span class="n">start</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">medaka</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">get_named_logger</span><span class="p">(</span><span class="s1">&#39;REGIONS&#39;</span><span class="p">)</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Found </span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="s1"> regions &gt; </span><span class="si">{}</span><span class="s1"> within </span><span class="si">{}</span><span class="s1">, spanning </span><span class="si">{}</span><span class="s1">/</span><span class="si">{}</span><span class="s1"> (</span><span class="si">{:.2%}</span><span class="s1">)&#39;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">homo_regions</span><span class="p">),</span> <span class="s1">&#39;homozygous&#39;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">min_len</span><span class="p">,</span>
+                           <span class="n">reg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">reg_len</span><span class="p">,</span> <span class="n">homo_len</span><span class="p">,</span> <span class="n">homo_len</span> <span class="o">/</span> <span class="n">reg_len</span><span class="p">))</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">hetero_regions</span><span class="p">),</span> <span class="s1">&#39;heterozygous&#39;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">min_len</span><span class="p">,</span>
+                           <span class="n">reg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">reg_len</span><span class="p">,</span> <span class="n">hetero_len</span><span class="p">,</span> <span class="n">hetero_len</span> <span class="o">/</span> <span class="n">reg_len</span><span class="p">))</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-19, Oxford Nanopore Technologies
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
